@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ridesharing-backend
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+    # Do NOT publish DB to the internet in production
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ridesharing-backend"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  backend:
+    build:
+      context: ./Backend/ridesharing-backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/ridesharing-backend
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 1234
+      SERVER_PORT: 9090
+    depends_on:
+      db:
+        condition: service_healthy
+    # Do NOT publish the backend port; it will be proxied by Nginx
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: /api
+        NGINX_CONF: nginx.prod.conf
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  pgdata:
